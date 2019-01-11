@@ -109,7 +109,7 @@ class DboSource extends DataSource {
 /**
  * Result
  *
- * @var array
+ * @var array|PDOStatement
  */
 	protected $_result = null;
 
@@ -248,6 +248,13 @@ class DboSource extends DataSource {
 	protected $_methodCacheChange = false;
 
 /**
+ * Map of the columns contained in a result.
+ *
+ * @var array
+ */
+	public $map = array();
+
+/**
  * Constructor
  *
  * @param array $config Array of configuration information for the Datasource.
@@ -270,6 +277,16 @@ class DboSource extends DataSource {
 		if ($autoConnect) {
 			$this->connect();
 		}
+	}
+
+/**
+ * Connects to the database.
+ *
+ * @return bool
+ */
+	public function connect() {
+		// This method is implemented in subclasses
+		return $this->connected;
 	}
 
 /**
@@ -470,7 +487,7 @@ class DboSource extends DataSource {
 			$query = $this->_connection->prepare($sql, $prepareOptions);
 			$query->setFetchMode(PDO::FETCH_LAZY);
 			if (!$query->execute($params)) {
-				$this->_results = $query;
+				$this->_result = $query;
 				$query->closeCursor();
 				return false;
 			}
@@ -617,6 +634,16 @@ class DboSource extends DataSource {
 			}
 			return $this->fetchAll($args[0], $args[1], array('cache' => $cache));
 		}
+	}
+
+/**
+ * Builds a map of the columns contained in a result
+ *
+ * @param PDOStatement $results The results to format.
+ * @return void
+ */
+	public function resultSet($results) {
+		// This method is implemented in subclasses
 	}
 
 /**
@@ -1076,7 +1103,7 @@ class DboSource extends DataSource {
 
 		for ($i = 0; $i < $count; $i++) {
 			$schema = $Model->schema();
-			$valueInsert[] = $this->value($values[$i], $Model->getColumnType($fields[$i]), isset($schema[$fields[$i]]) ? $schema[$fields[$i]]['null'] : true);
+			$valueInsert[] = $this->value($values[$i], $Model->getColumnType($fields[$i]), isset($schema[$fields[$i]]['null']) ? $schema[$fields[$i]]['null'] : true);
 			$fieldInsert[] = $this->name($fields[$i]);
 			if ($fields[$i] === $Model->primaryKey) {
 				$id = $values[$i];
@@ -1566,23 +1593,25 @@ class DboSource extends DataSource {
 		// Make one pass through children and collect by parent key
 		// Make second pass through parents and associate children
 		$mergedByFK = array();
-		foreach ($assocResultSet as $data) {
-			$fk = $data[$association][$foreignKey];
-			if (! array_key_exists($fk, $mergedByFK)) {
-				$mergedByFK[$fk] = array();
-			}
-			if (count($data) > 1) {
-				$data = array_merge($data[$association], $data);
-				unset($data[$association]);
-				foreach ($data as $key => $name) {
-					if (is_numeric($key)) {
-						$data[$association][] = $name;
-						unset($data[$key]);
-					}
+		if (is_array($assocResultSet)) {
+			foreach ($assocResultSet as $data) {
+				$fk = $data[$association][$foreignKey];
+				if (! array_key_exists($fk, $mergedByFK)) {
+					$mergedByFK[$fk] = array();
 				}
-				$mergedByFK[$fk][] = $data;
-			} else {
-				$mergedByFK[$fk][] = $data[$association];
+				if (count($data) > 1) {
+					$data = array_merge($data[$association], $data);
+					unset($data[$association]);
+					foreach ($data as $key => $name) {
+						if (is_numeric($key)) {
+							$data[$association][] = $name;
+							unset($data[$key]);
+						}
+					}
+					$mergedByFK[$fk][] = $data;
+				} else {
+					$mergedByFK[$fk][] = $data[$association];
+				}
 			}
 		}
 
@@ -2175,7 +2204,7 @@ class DboSource extends DataSource {
 			$update = $quoted . ' = ';
 
 			if ($quoteValues) {
-				$update .= $this->value($value, $Model->getColumnType($field), isset($schema[$field]) ? $schema[$field]['null'] : true);
+				$update .= $this->value($value, $Model->getColumnType($field), isset($schema[$field]['null']) ? $schema[$field]['null'] : true);
 			} elseif ($Model->getColumnType($field) === 'boolean' && (is_int($value) || is_bool($value))) {
 				$update .= $this->boolean($value, true);
 			} elseif (!$alias) {
@@ -2576,7 +2605,12 @@ class DboSource extends DataSource {
 		$virtual = array();
 		foreach ($fields as $field) {
 			$virtualField = $this->name($alias . $this->virtualFieldSeparator . $field);
-			$expression = $this->_quoteFields($Model->getVirtualField($field));
+			$virtualFieldExpression = $Model->getVirtualField($field);
+			if (is_object($virtualFieldExpression) && $virtualFieldExpression->type == 'expression') {
+				$expression = $virtualFieldExpression->value;
+			} else {
+				$expression = $this->_quoteFields($virtualFieldExpression);
+			}
 			$virtual[] = '(' . $expression . ") {$this->alias} {$virtualField}";
 		}
 		return $virtual;
@@ -2885,7 +2919,12 @@ class DboSource extends DataSource {
 
 		if ($Model !== null) {
 			if ($Model->isVirtualField($key)) {
-				$key = $this->_quoteFields($Model->getVirtualField($key));
+				$virtualField = $Model->getVirtualField($key);
+				if (is_object($virtualField) && $virtualField->type == 'expression') {
+					$key = $virtualField->value;
+				} else {
+					$key = $this->_quoteFields($virtualField);
+				}
 				$virtual = true;
 			}
 
@@ -3034,12 +3073,12 @@ class DboSource extends DataSource {
 		if (!is_array($keys)) {
 			$keys = array($keys);
 		}
-
 		$keys = array_filter($keys);
 
 		$result = array();
 		while (!empty($keys)) {
-			list($key, $dir) = each($keys);
+			$key = key($keys);
+			$dir = current($keys);
 			array_shift($keys);
 
 			if (is_numeric($key)) {
