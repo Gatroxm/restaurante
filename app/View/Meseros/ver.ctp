@@ -2,5 +2,7 @@
 <hr>
 <p><strong>Cedula: </strong> <?php echo $mesero['Mesero']['doc'] ?></p>
 <p><strong>Teléfono: </strong> <?php echo $mesero['Mesero']['telefono'] ?></p>
-<p><strong>Fecha de creación: </strong> <?php echo $mesero['Mesero']['created'] ?></p>
-<p><strong>Fecha de la ultima modificación: </strong> <?php echo $mesero['Mesero']['modified'] ?></p>
+<p><strong>Fecha de creación: </strong> <?php echo $this->Time->format('d-m-y; h:i A', $mesero['Mesero']['created'])  ?></p>
+<p><strong>Fecha de la ultima modificación: </strong> <?php echo $this->Time->format('d-m-y; h:i A', $mesero['Mesero']['modified']); ?></p>
+
+<?php echo $this->Html->link('Atras', array('controller' => 'meseros', 'action' =>'index')) ?>

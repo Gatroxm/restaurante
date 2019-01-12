@@ -1,4 +1,4 @@
-<h2>Crear Mesero</h2>
+<h2>Editar Mesero</h2>
 
 <?php 
 	
@@ -8,9 +8,8 @@
 	echo $this->Form->input('nombre');
 	echo $this->Form->input('apellido');
 	echo $this->Form->input('telefono');
-	echo $this->Form->end('Crear Mesero');
+	echo $this->Form->end('Editar Mesero');
 
 	
  ?>
-
- <?php echo $this->Html->link('Atras', array('controller' => 'meseros', 'action' =>'index')) ?>
+  <?php echo $this->Html->link('Atras', array('controller' => 'meseros', 'action' =>'index')) ?>

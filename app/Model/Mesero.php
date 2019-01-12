@@ -13,6 +13,10 @@
 						'numeric'	=> array(
 							'rule'	=> 'numeric',
 							'message'	=> 'Este campo solo resive numeros'
+						),
+						'unique'	=> array(
+							'rule'	=> 'isUnique',
+							'message' => 'Este documento ya esta en base de datos'
 						)
 					),
 					'nombre' => array(
@@ -22,7 +26,13 @@
 						'rule' => 'notBlank'
 					),
 					'telefono' => array(
-						'rule'	=> 'notBlank'
+						'notBlank'	=> array(
+							'rule'	=> 'notBlank'
+						),
+						'numeric'	=> array(
+							'rule'	=> 'numeric',
+							'message'	=> 'Este campo solo resive numeros'
+						)
 					)
 				);
 	}
